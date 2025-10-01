@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Crawl Monitor and Serve Data"
+    VERSION: str = "0.1.0"
     JWT_SECRET: str = "your-secret-key"
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "docker"  # Default 'docker'; set 'local' for debugging

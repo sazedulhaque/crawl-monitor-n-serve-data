@@ -6,7 +6,7 @@ from core.config import settings
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="A web crawling, monitoring, and data serving application",
-    version="1.0.0",
+    version=settings.VERSION,
 )
 
 
