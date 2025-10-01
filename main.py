@@ -14,7 +14,7 @@ app = FastAPI(
 async def root():
     return {
         "application": "Live",
-        "environment": settings.NVIRONMENT,
+        "environment": settings.ENVIRONMENT,
         "version": "0.1.0",
     }
 

@@ -7,6 +7,8 @@ services:
       - db
     environment:
       - MONGODB_URL=mongodb://db:27017
+    volumes:
+      - ./:/app
 
   db:
     image: mongo:6.0
@@ -16,4 +18,4 @@ services:
       - mongo_data:/data/db
 
 volumes:
-  mongo_data:
+  mongo_data: {}
