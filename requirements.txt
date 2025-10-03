@@ -1,9 +1,9 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-beanie==1.25.0
+beanie==2.0.0
 pydantic==2.5.0
 pydantic-settings
-pymongo==4.6.0
+email-validator
 requests
 beautifulsoup4
 apscheduler
@@ -11,3 +11,7 @@ python-dotenv
 ruff
 black
 pre-commit
+python-multipart
+types-requests
+pyjwt
+pwdlib[argon2]

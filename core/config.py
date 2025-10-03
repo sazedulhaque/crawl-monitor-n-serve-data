@@ -4,7 +4,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Crawl Monitor and Serve Data"
     VERSION: str = "0.1.0"
-    JWT_SECRET: str = "your-secret-key"
+    SECRET_KEY: str = "your-secret-key"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "docker"  # Default 'docker'; set 'local' for debugging
     CRAWL_INTERVAL: int = 60

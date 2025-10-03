@@ -1,0 +1,108 @@
+from datetime import datetime
+from typing import Any
+
+from beanie import Document, Link
+from pwdlib import PasswordHash
+from pydantic import EmailStr, Field, HttpUrl
+
+password_hash = PasswordHash.recommended()
+
+
+class BaseModel(Document):
+    """Base model with common fields for all documents"""
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        use_state_management = True
+
+    async def save(self, *args, **kwargs):
+        """Override save to update updated_at timestamp"""
+        self.updated_at = datetime.utcnow()
+        return await super().save(*args, **kwargs)
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: str | None = None
+
+
+class User(BaseModel):
+    """User model for authentication"""
+
+    email: EmailStr = Field(..., index=True)
+    username: str = Field(..., index=True, min_length=3, max_length=50)
+    password: str
+    full_name: str | None = None
+    is_active: bool = True
+    is_admin: bool = False
+
+    class Settings:
+        name = "users"
+        indexes = [
+            "email",
+            "username",
+        ]
+
+    def verify_password(self, plain_password: str) -> bool:
+        """Verify password against hashed password"""
+        return password_hash.verify(plain_password, self.password)
+
+    @staticmethod
+    def get_password_hash(password: str) -> str:
+        """Hash password"""
+        return password_hash.hash(password)
+
+
+class UserInDB(User):
+    hashed_password: str
+
+
+class Book(BaseModel):
+    """Book model with relationships to User and Product"""
+
+    title: str = Field(..., min_length=1, max_length=500, index=True)
+    description: str | None = None
+    category: str = Field(..., index=True)
+    price: float = Field(..., gt=0)
+    price_including_tax: float | None = Field(default=None, gt=0)
+    price_excluding_tax: float | None = Field(default=None, gt=0)
+    in_stock: bool = True
+    reviews_count: int = Field(default=0, ge=0)
+    rating: float = Field(default=0.0, ge=0, le=5)
+    cover_image: HttpUrl | None = None
+    user: Link[User] | None = None
+    crawl_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    status: str = "success"  # success, failed, partial
+    html_snapshot: str = ""
+
+    class Settings:
+        name = "books"
+        indexes = [
+            "category",
+            "price",
+            "rating",
+            [("title", 1), ("author", 1)],
+        ]
+
+
+class BookHistory(BaseModel):
+    """Track changes to books"""
+
+    book: Link[Book]
+    changed_by: Link[User] | None = None
+    change_type: str = Field(..., index=True)
+    field_name: str | None = None  # Which field changed
+    old_value: Any | None = None
+    new_value: Any | None = None
+    changes: dict[str, Any] | None = None  # Full change dict
+    description: str | None = None
+
+    class Settings:
+        name = "book_history"
+        indexes = ["book", "change_type", "created_at"]
