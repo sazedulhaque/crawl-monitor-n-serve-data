@@ -1,12 +1,14 @@
 from beanie import PydanticObjectId
 from beanie.operators import And
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from apps.api.models import Book, BookHistory, User
 from apps.api.schemas import (BookCreate, BookListResponse, BookResponse,
-                              BookUpdate, ChangeLogListResponse,
+                              BookShortResponse, BookUpdate,
+                              ChangeLogListResponse, ChangeLogResponse,
                               UserShortResponse)
 from apps.utils.auth import get_current_active_user
+from core.limiter import limiter
 
 router = APIRouter()
 
@@ -31,7 +33,9 @@ def convert_book_to_response(book: Book) -> dict:
 
 
 @router.get("/", response_model=BookListResponse)
+@limiter.limit("100/hour")
 async def get_books(
+    request: Request,
     category: str | None = None,
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
@@ -62,11 +66,15 @@ async def get_books(
         query_filters.append(Book.rating >= rating)
 
     # Build query
-    query = Book.find(And(*query_filters)) if query_filters else Book.find_all()
+    query = (
+        Book.find(And(*query_filters)) if query_filters else Book.find_all()
+    )  # noqa: E501
     # Apply sorting
     if sort_by:
         sort_field = getattr(Book, sort_by)
-        query = query.sort(+sort_field) if order == "asc" else query.sort(-sort_field)
+        query = (
+            query.sort(+sort_field) if order == "asc" else query.sort(-sort_field)
+        )  # noqa: E501
     # Get total count
     total = await query.count()
 
@@ -93,7 +101,7 @@ async def get_books(
 
 
 @router.get("/{book_id}", response_model=BookResponse)
-async def get_book(book_id: PydanticObjectId):
+async def get_book(request: Request, book_id: PydanticObjectId):
     """Get a single book by ID"""
     book = await Book.get(book_id)
     if not book:
@@ -118,15 +126,6 @@ async def create_book(
         user=current_user,
     )
     await book.insert()
-
-    # Create history entry
-    history = BookHistory(
-        book=book,
-        changed_by=current_user,
-        change_type="created",
-        description="Book created",
-    )
-    await history.insert()
 
     # Fetch linked data for response
     await book.fetch_all_links()
@@ -169,7 +168,7 @@ async def update_book(
                 book=book,
                 changed_by=current_user,
                 change_type="updated",
-                field_name=field,
+                field_changed=field,
                 old_value=str(old_value),
                 new_value=str(new_value),
                 changes=change_dict,
@@ -214,7 +213,9 @@ async def delete_book(
 
 
 @router.get("/changes/recent", response_model=ChangeLogListResponse)
+@limiter.limit("10/minute")
 async def get_recent_changes(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
@@ -232,12 +233,40 @@ async def get_recent_changes(
     for change in changes:
         await change.fetch_all_links()
 
-    total_pages = (total + page_size - 1) // page_size
+    # Transform to response format
+    items = []
+    for change in changes:
+        book_data = None
+        if change.book:
+            book_data = BookShortResponse(
+                title=change.book.title,
+                category=change.book.category,
+                price=change.book.price,
+                rating=change.book.rating,
+                reviews_count=change.book.reviews_count,
+                in_stock=change.book.in_stock,
+            )
+
+        changed_by_id = None
+        if change.changed_by:
+            changed_by_id = str(change.changed_by.id)
+
+        item = ChangeLogResponse(
+            id=str(change.id),
+            book=book_data,
+            book_title=change.book.title if change.book else None,
+            changed_by_id=changed_by_id,
+            change_type=change.change_type,
+            field_changed=change.field_changed,
+            old_value=str(change.old_value) if change.old_value else None,
+            new_value=str(change.new_value) if change.new_value else None,
+            description=change.description,
+        )
+        items.append(item)
 
     return ChangeLogListResponse(
         total=total,
         page=page,
         page_size=page_size,
-        total_pages=total_pages,
-        changes=changes,
+        items=items,
     )

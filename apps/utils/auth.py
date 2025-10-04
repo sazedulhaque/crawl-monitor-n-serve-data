@@ -1,30 +1,93 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-import jwt
+from argon2 import PasswordHasher
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import InvalidTokenError
-from pwdlib import PasswordHash
+from fastapi.security import (HTTPAuthorizationCredentials, HTTPBearer,
+                              OAuth2PasswordBearer)
+from jose import JWTError, jwt
 
 from apps.api.models import User
-from apps.api.schemas import TokenData
 from core.config import settings
 
-# OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# Two authentication schemes
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
+bearer_scheme = HTTPBearer(auto_error=False)
 
 # Password hashing
-password_hash = PasswordHash.recommended()
+password_hasher = PasswordHasher()
+
+
+async def get_token(
+    oauth2_token: str | None = Depends(oauth2_scheme),
+    bearer_token: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> str:
+    """
+    Get token from either OAuth2 or Bearer authentication.
+    Supports both methods in Swagger UI.
+    """
+    # Try Bearer token first (direct token input)
+    if bearer_token:
+        return bearer_token.credentials
+
+    # Fall back to OAuth2 token (username/password flow)
+    if oauth2_token:
+        return oauth2_token
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def get_current_user(token: str = Depends(get_token)) -> User:
+    """Decode JWT token and get current user"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = await User.find_one(User.username == username)
+    if user is None:
+        raise credentials_exception
+
+    return user
+
+
+async def get_current_active_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Verify user is active"""
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
+        )
+    return current_user
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed password"""
-    return password_hash.verify(plain_password, hashed_password)
+    try:
+        return password_hasher.verify(hashed_password, plain_password)
+    except Exception:
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Hash a password"""
-    return password_hash.hash(password)
+    return password_hasher.hash(password)
 
 
 async def authenticate_user(username: str, password: str) -> User | None:
@@ -32,12 +95,13 @@ async def authenticate_user(username: str, password: str) -> User | None:
     user = await User.find_one(User.username == username)
     if not user:
         return None
-    if not user.verify_password(password):
-        return None
-    return user
+    return user if user.verify_password(password) else None
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    data: dict,
+    expires_delta: timedelta | None = None,
+) -> str:
     """Create a JWT access token"""
     to_encode = data.copy()
     if expires_delta:
@@ -46,43 +110,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    to_encode["exp"] = expire
+    return jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
     )
-    return encoded_jwt
-
-
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
-    """Get the current authenticated user from JWT token"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except InvalidTokenError:
-        raise credentials_exception
-
-    user = await User.find_one(User.username == token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
-
-
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """Get the current active user (not disabled)"""
-    if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
-        )
-    return current_user

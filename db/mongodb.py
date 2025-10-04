@@ -2,7 +2,7 @@ from beanie import init_beanie
 from pymongo import AsyncMongoClient
 
 # Import all models here so Beanie can initialize them
-from apps.api.models import Book, BookHistory, User
+from apps.api.models import Book, BookHistory, CrawlSession, User
 from core.config import settings
 
 
@@ -15,7 +15,7 @@ class Database:
         cls.client = AsyncMongoClient(settings.MONGODB_URL)
         await init_beanie(
             database=cls.client[settings.DATABASE_NAME],
-            document_models=[User, Book, BookHistory],
+            document_models=[User, Book, BookHistory, CrawlSession],
         )
 
     @classmethod

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from beanie import Document, Link
@@ -8,18 +8,23 @@ from pydantic import EmailStr, Field, HttpUrl
 password_hash = PasswordHash.recommended()
 
 
+def utc_now():
+    """Helper function to get current UTC time"""
+    return datetime.now(timezone.utc)
+
+
 class BaseModel(Document):
     """Base model with common fields for all documents"""
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     class Settings:
         use_state_management = True
 
     async def save(self, *args, **kwargs):
         """Override save to update updated_at timestamp"""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
         return await super().save(*args, **kwargs)
 
 
@@ -80,6 +85,10 @@ class Book(BaseModel):
     crawl_timestamp: datetime = Field(default_factory=datetime.utcnow)
     status: str = "success"  # success, failed, partial
     html_snapshot: str = ""
+    remote_book_id: str | None = Field(default=None, index=True)
+    content_hash: str | None = Field(default=None, index=True)
+    source_url: HttpUrl | None = None
+    last_crawl_timestamp: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "books"
@@ -87,8 +96,33 @@ class Book(BaseModel):
             "category",
             "price",
             "rating",
-            [("title", 1), ("author", 1)],
+            "remote_book_id",
+            "content_hash",
+            "source_url",
+            "crawl_timestamp",
+            [("title", 1), ("category", 1)],
+            [("remote_book_id", 1), ("source_url", 1)],
         ]
+
+
+class CrawlSession(BaseModel):
+    """Track crawl sessions for monitoring and resumability"""
+
+    session_id: str = Field(..., index=True)
+    status: str = Field(..., index=True)  # running, completed, failed, paused
+    started_by: Link[User] | None = None
+    total_pages: int = 0
+    processed_pages: int = 0
+    new_books: int = 0
+    updated_books: int = 0
+    failed_books: int = 0
+    last_processed_url: str | None = None
+    error_message: str | None = None
+    completed_at: datetime | None = None
+
+    class Settings:
+        name = "crawl_sessions"
+        indexes = ["session_id", "status", "started_by", "created_at"]
 
 
 class BookHistory(BaseModel):
@@ -97,12 +131,13 @@ class BookHistory(BaseModel):
     book: Link[Book]
     changed_by: Link[User] | None = None
     change_type: str = Field(..., index=True)
-    field_name: str | None = None  # Which field changed
+    field_changed: str | None = None  # Which field changed
     old_value: Any | None = None
     new_value: Any | None = None
     changes: dict[str, Any] | None = None  # Full change dict
     description: str | None = None
+    crawl_session_id: str | None = None
 
     class Settings:
         name = "book_history"
-        indexes = ["book", "change_type", "created_at"]
+        indexes = ["book", "change_type", "created_at", "crawl_session_id"]

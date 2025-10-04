@@ -33,9 +33,7 @@ class UserResponse(BaseModel):
     @classmethod
     def convert_objectid_to_str(cls, value):
         """Convert ObjectId to string before validation"""
-        if value is None:
-            return None
-        return str(value)
+        return str(value) if value else None
 
 
 class UserShortResponse(BaseModel):
@@ -49,9 +47,7 @@ class UserShortResponse(BaseModel):
     @classmethod
     def convert_objectid_to_str(cls, value):
         """Convert ObjectId to string before validation"""
-        if value is None:
-            return None
-        return str(value)
+        return str(value) if value else None
 
 
 class Token(BaseModel):
@@ -71,8 +67,6 @@ class BookBase(BaseModel):
     """Base schema for book"""
 
     title: str = Field(..., min_length=1, max_length=500)
-    # author: str = Field(..., min_length=1, max_length=200)
-    # isbn: str | None = None
     description: str | None = None
     category: str
     price: float = Field(..., gt=0)
@@ -82,6 +76,8 @@ class BookBase(BaseModel):
     reviews_count: int = Field(default=0, ge=0)
     rating: float = Field(default=0.0, ge=0, le=5)
     cover_image: HttpUrl | None = None
+    remote_book_id: str | None = None
+    source_url: HttpUrl | None = None
 
 
 class BookCreate(BookBase):
@@ -103,6 +99,17 @@ class BookUpdate(BaseModel):
     in_stock: bool | None = None
 
 
+class BookShortResponse(BaseModel):
+    """Schema for books Short data"""
+
+    title: str | None = Field(None, min_length=1, max_length=500)
+    category: str | None = None
+    price: float | None = Field(None, gt=0)
+    rating: float | None = Field(None, ge=0, le=5)
+    reviews_count: int | None = Field(None, ge=0)
+    in_stock: bool | None = None
+
+
 class BookResponse(BookBase):
     """Schema for book response"""
 
@@ -115,9 +122,8 @@ class BookResponse(BookBase):
     @classmethod
     def convert_objectid_to_str(cls, value):
         """Convert ObjectId to string before validation"""
-        if value is None:
-            return None
-        return str(value)
+
+        return str(value) if value else None
 
     class Config:
         from_attributes = True
@@ -137,24 +143,20 @@ class ChangeLogResponse(BaseModel):
     """Schema for change log response"""
 
     id: str
-    book_id: str
+    book: BookShortResponse | None = None
     book_title: str | None = None
     changed_by_id: str | None = None
-    changed_by_username: str | None = None
     change_type: str
-    field_name: str | None = None
+    field_changed: str | None = None
     old_value: str | None = None
     new_value: str | None = None
     description: str | None = None
-    created_at: datetime
 
-    @field_validator("id", "book_id", "changed_by_id", mode="before")
+    @field_validator("id", "changed_by_id", mode="before")
     @classmethod
     def convert_objectid_to_str(cls, value):
         """Convert ObjectId to string before validation"""
-        if value is None:
-            return None
-        return str(value)
+        return str(value) if value else None
 
     class Config:
         from_attributes = True
@@ -167,3 +169,43 @@ class ChangeLogListResponse(BaseModel):
     page: int
     page_size: int
     items: list[ChangeLogResponse]
+
+
+class CrawlSessionResponse(BaseModel):
+    """Schema for crawl session response"""
+
+    id: str
+    session_id: str
+    status: str
+    total_pages: int
+    processed_pages: int
+    new_books: int
+    updated_books: int
+    failed_books: int
+    started_by_id: str | None = None
+    last_processed_url: str | None = None
+    error_message: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
+
+    @field_validator("id", "started_by_id", mode="before")
+    @classmethod
+    def convert_objectid_to_str(cls, value):
+        """Convert ObjectId to string before validation"""
+        return str(value) if value else None
+
+
+class ScrapingStatusResponse(BaseModel):
+    """Response for scraping status and results"""
+
+    session_id: str
+    status: str
+    message: str
+    total_books_found: int = 0
+    new_books_added: int = 0
+    books_updated: int = 0
+    failed_operations: int = 0
+    current_page: int = 0
+    total_pages: int = 0
+    started_at: datetime | None = None
+    completed_at: datetime | None = None

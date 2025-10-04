@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Annotated
 
 from beanie.operators import Or
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from apps.api.models import User
@@ -67,10 +67,14 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return Token(access_token=access_token)
 
 
-@router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
+@router.get("/me")
+async def read_users_me_and_scrape(
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+):
     """Get current user information"""
-    return UserResponse(
+    # User information
+    user_response = UserResponse(
         id=str(current_user.id),
         email=current_user.email,
         username=current_user.username,
@@ -78,6 +82,8 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         is_active=current_user.is_active,
         is_admin=current_user.is_admin,
     )
+
+    return {"user": user_response.model_dump()}
 
 
 @router.post("/token")
