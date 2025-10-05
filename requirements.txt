@@ -18,3 +18,9 @@ black
 pre-commit
 email-validator
 requests
+
+# Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
