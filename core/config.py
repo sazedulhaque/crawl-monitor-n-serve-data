@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "docker"  # Default 'docker'; set 'local' for debugging
-    CRAWL_INTERVAL: int = 60
+    CRAWL_INTERVAL: int = 360  # 6 Hours in minutes
+    NOTIFICATIONL_INTERVAL: int = 12
     DB_HOST: str = "db"
     DB_PORT: str = "27017"
     DB_USER: str = ""

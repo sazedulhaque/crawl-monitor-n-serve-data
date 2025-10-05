@@ -4,6 +4,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from apps.crawler.book_scraper_service import BookScrapingService
+from core.config import settings
 
 # Create scheduler instance (will be started by main.py)
 scheduler = AsyncIOScheduler()
@@ -33,7 +34,7 @@ async def start_scheduler():
     # Add scheduled jobs
     scheduler.add_job(
         scheduled_for_book_scraping,
-        IntervalTrigger(hours=1),
+        IntervalTrigger(minutes=settings.CRAWL_INTERVAL),
         id="job_1",
         name="Scheduled for book scraping",
         replace_existing=True,
@@ -41,7 +42,7 @@ async def start_scheduler():
 
     # scheduler.add_job(
     #     schedule_for_sending_notifications,
-    #     IntervalTrigger(minutes=1),
+    #     IntervalTrigger(minutes=settings.NOTIFICATIONL_INTERVAL),
     #     id="job_2",
     #     name="Scheduled for sending Notifications",
     #     replace_existing=True,

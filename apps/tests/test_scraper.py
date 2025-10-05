@@ -2,7 +2,7 @@
 Tests for scraping functionality with mocked data
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

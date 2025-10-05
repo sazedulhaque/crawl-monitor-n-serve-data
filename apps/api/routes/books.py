@@ -5,8 +5,7 @@ from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.beanie import apaginate
 
 from apps.api.models import Book, BookHistory, CrawlSession, User
-from apps.api.schemas import (BookCreate, BookResponse, BookShortResponse,
-                              BookUpdate, ChangeLogResponse, UserShortResponse)
+from apps.api.schemas import BookCreate, BookResponse, BookUpdate, UserShortResponse
 from apps.utils.auth import get_current_active_user
 from core.limiter import limiter
 
@@ -47,7 +46,7 @@ async def get_books(
     order: str = Query("desc", regex="^(asc|desc)$"),
 ):
     """
-    Get all books with optional filtering, sorting, and pagination.
+    Get all books with optional filtering, sorting and pagination.
     """
     # Build query filters
     query_filters = []
@@ -209,7 +208,7 @@ async def get_recent_changes(
 
 @router.get("/session/data", response_model=Page[CrawlSession])
 @limiter.limit("100/hour")
-async def get_recent_changes(
+async def get_session_datas(
     request: Request,
     params: Params = Depends(),
 ):

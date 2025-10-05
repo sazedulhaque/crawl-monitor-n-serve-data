@@ -3,7 +3,6 @@ import hashlib
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -114,7 +113,7 @@ class BookScraper:
             book_data.get("description", "")[:100],  # First 100 chars
         ]
         content = "|".join(str(field) for field in hash_fields)
-        return hashlib.md5(content.encode()).hexdigest()
+        return hashlib.md5(content.encode()).hexdigest()  # nosec
 
     def extract_book_data(
         self,
@@ -124,18 +123,20 @@ class BookScraper:
         """
         Extract book data from HTML content and return a structured dictionary.
 
-        This method parses the HTML content of a book page and extracts various pieces of
-        information including title, description, price, stock status, rating, and other metadata.
+        This method parses the HTML content of a book page and extracts
+        various pieces of information including title, description,
+        price, stock status, rating and other metadata.
 
         Args:
             html (str): The HTML content of the book page to parse.
-            page_url (str): The URL of the page being parsed, used for resolving relative URLs
-                            and generating remote book IDs.
+            page_url (str): The URL of the page being parsed,
+            used for resolving relative URLs and generating remote book IDs.
 
         Returns:
-            Optional[dict]: A dictionary containing the extracted book data with the following keys:
+            Optional[dict]: A dictionary containing the extracted book data
+            with the following keys:
                 - title (str): The book's title
-                - description (str): Book description from meta tag or product description section
+                - description (str): Book description from meta tag
                 - category (str): Book category from breadcrumb navigation
                 - price (float): Base price of the book
                 - price_including_tax (float): Price including tax
@@ -145,12 +146,12 @@ class BookScraper:
                 - rating (float): Star rating (0-5)
                 - cover_image (str): URL of the book's cover image
                 - source_url (str): Original page URL
-                - remote_book_id (str): Unique identifier generated from URL or title
-                - crawl_timestamp (datetime): Timestamp when the data was crawled
+                - remote_book_id (str): Unique identifier generated from URL
+                - crawl_timestamp (datetime): Crawled Timestamp
                 - last_crawl_timestamp (datetime): Last crawl timestamp
                 - status (str): Status of the extraction ("success")
                 - html_snapshot (str): Original HTML content
-                - content_hash (str): Hash of the book content for change detection
+                - content_hash (str): For change detection
 
                 Returns None if extraction fails due to any exception.
 

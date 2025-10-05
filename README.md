@@ -4,67 +4,176 @@ A web crawling, monitoring and data serving application built with FastAPI, Mong
 
 ## Features
 
-- Web crawling with BeautifulSoup
-- Scheduled crawling tasks with APScheduler
-- REST API with FastAPI
-- MongoDB data storage with Beanie ODM
-- Docker containerization
+- **Web Scraping**: Automated book data extraction from books.toscrape.com
+- **Change Detection**: Content hash-based change monitoring with three-tier optimization
+- **Scheduled Tasks**: Configurable crawling intervals (12h/24h) with APScheduler
+- **REST API**: Comprehensive FastAPI endpoints with authentication
+- **Rate Limiting**: Global 100/hour limit with endpoint-specific overrides
+- **Data Storage**: MongoDB with Beanie ODM and change history tracking
+- **Authentication**: JWT-based auth with dual methods (OAuth2 + Bearer token)
+- **Testing**: test cases with pytest and coverage reporting
+- **Docker Support**: Full containerization with Docker Compose
 
 ## Prerequisites
 
-- Python 3.12
+- Python 3.12+
 - Docker and Docker Compose
+- MongoDB (included in Docker setup)
 
-## Setup Instructions
+## Quick Start
 
-1. Clone the repository:
+1. **Clone the repository**:
 
    ```bash
    git clone https://github.com/sazedulhaque/crawl-monitor-n-serve-data.git
    cd crawl-monitor-n-serve-data
    ```
 
-2. Create a virtual environment:
+2. **Start with Docker** (Recommended):
+
+   ```bash
+   docker-compose up --build
+   ```
+
+3. **Access the application**:
+   - API: http://localhost:8000
+   - Swagger UI: http://localhost:8000/docs
+   - ReDoc: http://localhost:8000/redoc
+
+## Local Development Setup
+
+1. **Create virtual environment**:
 
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. Install dependencies:
+2. **Install dependencies**:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Copy the example environment file:
+3. **Environment configuration**:
 
    ```bash
    cp .env.example .env
+   # Edit .env with your settings
    ```
 
-5. Edit `.env` with your configuration.
-
-6. Run with Docker Compose:
-
+4. **Run locally**:
    ```bash
-   docker-compose up --build
-   ```
-
-   Or run locally:
-
-   ```bash
-   uvicorn main:app --reload
+   uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 ## Environment Variables
 
-Create a `.env` file based on `.env.example`:
+Create a `.env` file:
 
+```env
+# Application
+PROJECT_NAME="Book Scraping API"
+VERSION="1.0.0"
+ENVIRONMENT="development"
+
+# Database
+MONGODB_URL=mongodb://mongodb:27017
+DATABASE_NAME=book_scraper_db
+
+# Security
+SECRET_KEY=your-secret-key-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+
+# Crawling Configuration
+CRAWL_INTERVAL= 360  # in minutes == 6 hour
+NOTIFICATIONL_INTERVAL=12
 ```
-MONGODB_URL=mongodb://db:27017
-DATABASE_NAME=crawl_monitor
-CRAWL_INTERVAL=60
+
+## API Documentation
+
+### Authentication
+
+The API supports **two authentication methods**:
+
+1. **OAuth2 Password Flow** (Swagger UI):
+   - Click "Authorize" → "OAuth2PasswordBearer"
+   - Enter username/password
+2. **Bearer Token** (Direct):
+   - Get token from `/api/v1/auth/token`
+   - Click "Authorize" → "HTTPBearer"
+   - Paste token
+
+### Core Endpoints
+
+#### Authentication
+
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/token` - OAuth2 token endpoint
+- `GET /api/v1/auth/me` - Get current user
+- `GET /api/v1/auth/verify-token` - Verify token validity
+
+#### Books Management
+
+- `GET /api/v1/books/` - List books (filtering, pagination, sorting)
+- `GET /api/v1/books/{id}` - Get specific book
+- `POST /api/v1/books/` - Create book (authenticated)
+- `PUT /api/v1/books/{id}` - Update book (authenticated)
+- `DELETE /api/v1/books/{id}` - Delete book (authenticated)
+
+#### Change Monitoring
+
+- `GET /api/v1/books/changes/recent` - Book data changes report
+- `GET /api/v1/books/session/data` - Scraping session history
+
+#### System
+
+- `GET /health-check` - Health check
+
+## Scheduler Configuration
+
+The application runs automated tasks:
+
+- **Book Scraping**: Every 6 hours (configurable via .env.example & it will create .env in docker container)
+
+### Code Quality Tools
+
+```bash
+# Install pre-commit hooks
+pre-commit install
+
+# Run manually on all files
+pre-commit run --all-files
+
+# Format with Black
+black apps/
+
+# Lint with Ruff and fix
+ruff check . --fix
+```
+
+### VS Code Configuration
+
+The `.vscode/settings.json` configures:
+
+- Black formatting on save
+- Ruff linting
+- Import organization
+- Python path settings
+
+### Authenticate and Get Books
+
+```bash
+# Get token
+TOKEN=$(curl -X POST "http://localhost:8000/api/v1/auth/token" \
+  -d "username=your_user&password=your_pass" | jq -r '.access_token')
+
+# Use token
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/books/?category=Fiction&min_price=10"
 ```
 
 ## Dependencies
@@ -81,13 +190,11 @@ CRAWL_INTERVAL=60
 
 - python-multipart==0.0.17
 - python-jose[cryptography]==3.3.0
-- pwdlib[argon2]
 - argon2-cffi==23.1.0
-- email-validator
+- slowapi==0.1.9
 
 ### Web Scraping & HTTP
 
-- requests
 - httpx==0.27.2
 - beautifulsoup4==4.12.3
 - lxml==5.3.0
@@ -95,7 +202,6 @@ CRAWL_INTERVAL=60
 ### Task Scheduling & Utils
 
 - apscheduler==3.10.4
-- slowapi==0.1.9
 - aiofiles
 
 ### Development & Code Quality
@@ -120,81 +226,29 @@ The API includes built-in Swagger UI documentation. When running the application
 
 ### Sample API Endpoints
 
-- `GET /` - Health check
-- `GET /api/v1/` - List all items
-- `POST /api/v1/` - Create an item
-- `GET /api/v1/{item_id}` - Get item by ID
-- `PUT /api/v1/{item_id}` - Update item by ID
-- `DELETE /api/v1/{item_id}` - Delete item by ID
+#### Health & Info
 
-## Sample MongoDB Document Structure
+- `GET /health-check` - Health check
 
-```json
-{
-  "_id": "ObjectId('...')",
-  "name": "Sample Item",
-  "description": "This is a sample document",
-  "url": "https://example.com",
-  "crawl_timestamp": "2023-09-30T12:00:00Z",
-  "status_code": 200,
-  "content_length": 12345
-}
-```
+#### Books
 
-## Screenshots and Logs
+- `GET /api/v1/books/` - List all books (with pagination)
+- `POST /api/v1/books/` - Create a book
+- `GET /api/v1/books/{book_id}` - Get book by ID
+- `PUT /api/v1/books/{book_id}` - Update book by ID
+- `DELETE /api/v1/books/{book_id}` - Delete book by ID
 
-### Successful Crawl Run
+#### Crawling & Monitoring
 
-![Crawl Success](screenshots/crawl_success.png)
+- `GET /api/v1/books/changes/recent` - Get recent book changes (daily report)
+- `GET /api/v1/books/session/data` - Get crawl session data
 
-### Scheduler Logs
+#### Authentication
 
-```
-2023-09-30 12:00:00 - Scheduler started
-2023-09-30 12:01:00 - Crawl task executed successfully
-2023-09-30 12:02:00 - Data saved to MongoDB
-```
-
-## Development
-
-### Code Formatting
-
-This project uses Black for automatic code formatting. The VS Code settings are configured to format Python files on save.
-
-#### Setup
-
-1. Install development dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Install pre-commit hooks (recommended for maintaining code quality):
-
-   ```bash
-   pre-commit install
-   ```
-
-   This ensures code formatting and linting checks run automatically before each commit.
-
-3. Run pre-commit manually (optional):
-
-   ```bash
-   # Run on all files
-   pre-commit run --all-files
-
-   # Run on staged files only
-   pre-commit run
-   ```
-
-#### VS Code Configuration
-
-The `.vscode/settings.json` file is configured to:
-
-- Use Black as the Python formatter
-- Format code on save
-- Organize imports automatically
-- Enable Ruff linting
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - User login
+- `GET /api/v1/auth/me` - Get current user information
+- `POST /api/v1/auth/refresh` - Refresh authentication token
 
 ### Running Tests
 
@@ -209,7 +263,7 @@ pytest
 pre-commit run --all-files
 ```
 
-### How can we check the changes
+## How can we check the changes
 
 To verify that the change detection system is working correctly:
 
@@ -231,7 +285,9 @@ To verify that the change detection system is working correctly:
 
 7. We also used MD5 hash for content hasing as this hash is for comparing not for security purpose.
 
-## We can get daily change report in
+## API Examples
+
+### Get Change Report
 
 `http://localhost:8001/api/v1/books/changes/recent?page=1&size=50`
 
@@ -296,7 +352,7 @@ To verify that the change detection system is working correctly:
 ]
 ```
 
-## We can get session data in
+### Get Scraping Session Data
 
 `http://localhost:8001/api/v1/books/session/data?page=1&size=50`
 

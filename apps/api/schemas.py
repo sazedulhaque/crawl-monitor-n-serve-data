@@ -2,8 +2,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
 
-from apps.api.models import BookStatus, CrawlSessionStatus
-
 
 class UserRegister(BaseModel):
     """Schema for user registration"""

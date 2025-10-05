@@ -6,9 +6,8 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, Optional
 
-from apps.api.models import (Book, BookHistory, BookStatus, CrawlSession,
+from apps.api.models import (Book, BookHistory, CrawlSession,
                              CrawlSessionStatus, User)
 from apps.crawler.crawler import BookScraper
 

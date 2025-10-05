@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="A web crawling, monitoring, and data serving application",
+    description="A web crawling, monitoring and data serving application",
     version=settings.VERSION,
     swagger_ui_parameters={
         "persistAuthorization": True,
@@ -95,8 +95,8 @@ async def shutdown_event():
     logger.info("Database connection closed")
 
 
-@app.get("/")
-async def root():
+@app.get("/health-check")
+async def health_check():
     return {
         "application": "Live",
         "environment": settings.ENVIRONMENT,

@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from argon2 import PasswordHasher
 from fastapi import Depends, HTTPException, status
