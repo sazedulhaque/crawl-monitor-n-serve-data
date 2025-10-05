@@ -69,14 +69,47 @@ CRAWL_INTERVAL=60
 
 ## Dependencies
 
-- fastapi==0.104.1
-- uvicorn[standard]==0.24.0
-- beanie
-- pydantic
+### Core Framework
+
+- fastapi==0.115.4
+- uvicorn[standard]==0.32.0
+- beanie==2.0.0
+- pydantic==2.9.2
+- pydantic-settings==2.6.0
+
+### Authentication & Security
+
+- python-multipart==0.0.17
+- python-jose[cryptography]==3.3.0
+- pwdlib[argon2]
+- argon2-cffi==23.1.0
+- email-validator
+
+### Web Scraping & HTTP
+
 - requests
-- beautifulsoup4
-- apscheduler
-- python-dotenv
+- httpx==0.27.2
+- beautifulsoup4==4.12.3
+- lxml==5.3.0
+
+### Task Scheduling & Utils
+
+- apscheduler==3.10.4
+- slowapi==0.1.9
+- aiofiles
+
+### Development & Code Quality
+
+- ruff
+- black
+- pre-commit
+
+### Testing
+
+- pytest==8.3.3
+- pytest-asyncio==0.24.0
+- pytest-cov==6.0.0
+- pytest-mock==3.14.0
 
 ## API Testing
 
@@ -153,7 +186,8 @@ The `.vscode/settings.json` file is configured to:
 ### Running Tests
 
 ```bash
-pytest tests/
+pytest apps/tests
+pytest 
 ```
 
 ## Trouble with linter, execute pre-commit manually on local machine
