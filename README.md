@@ -1,6 +1,6 @@
 # Crawl Monitor and Serve Data
 
-A web crawling, monitoring and data serving application built with FastAPI, MongoDB and Beanie ODM.
+A web crawling, monitoring, and data serving application built with FastAPI, MongoDB, and Beanie ODM.
 
 ## Features
 
