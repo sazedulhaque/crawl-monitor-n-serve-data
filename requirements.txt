@@ -18,6 +18,7 @@ black
 pre-commit
 email-validator
 requests
+fastapi-pagination
 
 # Testing
 pytest==8.3.3

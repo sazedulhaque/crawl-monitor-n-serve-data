@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
-from apps.api.models import CrawlSession, User
+from apps.api.models import BookStatus, CrawlSession, CrawlSessionStatus, User
 
 
 class BookScraper:
@@ -46,7 +46,7 @@ class BookScraper:
         """Initialize a new crawl session"""
         self.crawl_session = CrawlSession(
             session_id=self.session_id,
-            status="running",
+            status=CrawlSessionStatus.RUNNING,
             started_by=user,
             total_pages=total_pages,
             processed_pages=0,
@@ -284,7 +284,7 @@ class BookScraper:
                 "remote_book_id": remote_book_id,
                 "crawl_timestamp": datetime.now(timezone.utc),
                 "last_crawl_timestamp": datetime.now(timezone.utc),
-                "status": "success",
+                "status": BookStatus.SUCCESS.value,
                 "html_snapshot": html,
             }
 

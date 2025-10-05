@@ -179,7 +179,7 @@ class TestAdminEndpoints:
         """Test admin user can login"""
         response = await test_client.post(
             "/api/v1/auth/token",
-            data={"username": "adminuser", "password": "adminpass123"},
+            data={"username": "adminuser", "password": "adminpassword123"},
         )
 
         assert response.status_code == status.HTTP_200_OK

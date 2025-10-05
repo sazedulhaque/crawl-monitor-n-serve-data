@@ -107,34 +107,60 @@ async def test_client(db_client) -> AsyncGenerator[AsyncClient, None]:
         yield client
 
 
-@pytest.fixture(scope="function")
-async def test_user(db_client) -> User:
+@pytest.fixture
+async def test_user(db_client):
     """Create a test user"""
+    # Clean up any existing user first
+    existing = await User.find_one(User.username == "testuser")
+    if existing:
+        await existing.delete()
+
     user = User(
         email="testuser@example.com",
         username="testuser",
-        password=User.get_password_hash("testpassword123"),
+        password="testpassword123",
         full_name="Test User",
-        is_active=True,
-        is_admin=False,
     )
-    await user.insert()
-    return user
+    await user.save(hash_password=True)
+    yield user
+    try:
+        await user.delete()
+    except Exception:
+        pass
 
 
-@pytest.fixture(scope="function")
-async def admin_user(db_client) -> User:
-    """Create an admin user"""
-    admin = User(
+@pytest.fixture
+async def admin_user(db_client):
+    """Create an admin test user"""
+    # Clean up any existing admin first
+    existing = await User.find_one(User.username == "adminuser")
+    if existing:
+        await existing.delete()
+
+    # Also check by email
+    existing = await User.find_one(User.email == "admin@example.com")
+    if existing:
+        await existing.delete()
+
+    user = User(
         email="admin@example.com",
         username="adminuser",
-        password=User.get_password_hash("adminpass123"),
+        password="adminpassword123",
         full_name="Admin User",
-        is_active=True,
         is_admin=True,
     )
-    await admin.insert()
-    return admin
+    await user.save(hash_password=True)
+
+    # Verify the user was created and can be found
+    found_user = await User.find_one(User.username == "adminuser")
+    assert found_user is not None, "Admin user was not created properly"
+    assert found_user.is_admin is True, "Admin user is_admin flag not set"
+
+    yield user
+    try:
+        await user.delete()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="function")
@@ -153,7 +179,10 @@ async def admin_token(test_client: AsyncClient, admin_user: User) -> str:
     """Get authentication token for admin user"""
     response = await test_client.post(
         "/api/v1/auth/token",
-        data={"username": "adminuser", "password": "adminpass123"},
+        data={
+            "username": "adminuser",
+            "password": "adminpassword123",
+        },
     )
     assert response.status_code == 200
     return response.json()["access_token"]

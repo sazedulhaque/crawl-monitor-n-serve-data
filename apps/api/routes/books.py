@@ -1,12 +1,12 @@
 from beanie import PydanticObjectId
 from beanie.operators import And
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi_pagination import Page, Params
+from fastapi_pagination.ext.beanie import apaginate
 
-from apps.api.models import Book, BookHistory, User
-from apps.api.schemas import (BookCreate, BookListResponse, BookResponse,
-                              BookShortResponse, BookUpdate,
-                              ChangeLogListResponse, ChangeLogResponse,
-                              UserShortResponse)
+from apps.api.models import Book, BookHistory, CrawlSession, User
+from apps.api.schemas import (BookCreate, BookResponse, BookShortResponse,
+                              BookUpdate, ChangeLogResponse, UserShortResponse)
 from apps.utils.auth import get_current_active_user
 from core.limiter import limiter
 
@@ -32,10 +32,11 @@ def convert_book_to_response(book: Book) -> dict:
     return book_dict
 
 
-@router.get("/", response_model=BookListResponse)
+@router.get("/", response_model=Page[BookResponse])
 @limiter.limit("100/hour")
 async def get_books(
     request: Request,
+    params: Params = Depends(),
     category: str | None = None,
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
@@ -44,8 +45,6 @@ async def get_books(
         None, regex="^(rating|price|reviews_count|created_at)$"
     ),
     order: str = Query("desc", regex="^(asc|desc)$"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
 ):
     """
     Get all books with optional filtering, sorting, and pagination.
@@ -66,37 +65,19 @@ async def get_books(
         query_filters.append(Book.rating >= rating)
 
     # Build query
-    query = (
-        Book.find(And(*query_filters)) if query_filters else Book.find_all()
-    )  # noqa: E501
+    query = Book.find(And(*query_filters)) if query_filters else Book.find_all()
+
     # Apply sorting
+    sort = None
     if sort_by:
-        sort_field = getattr(Book, sort_by)
-        query = (
-            query.sort(+sort_field) if order == "asc" else query.sort(-sort_field)
-        )  # noqa: E501
-    # Get total count
-    total = await query.count()
+        sort = [(sort_by, 1 if order == "asc" else -1)]
 
-    # Apply pagination
-    skip = (page - 1) * page_size
-    books = await query.skip(skip).limit(page_size).to_list()
-
-    # Fetch linked data
-    for book in books:
-        await book.fetch_all_links()
-
-    # Convert books to response format
-    book_responses = [convert_book_to_response(book) for book in books]
-
-    total_pages = (total + page_size - 1) // page_size
-
-    return BookListResponse(
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
-        items=book_responses,
+    return await apaginate(
+        query,
+        params,
+        sort=sort,
+        fetch_links=True,
+        transformer=lambda items: [convert_book_to_response(book) for book in items],
     )
 
 
@@ -166,7 +147,6 @@ async def update_book(
             desc = f"{field} updated from {old_value} to {new_value}"
             history = BookHistory(
                 book=book,
-                changed_by=current_user,
                 change_type="updated",
                 field_changed=field,
                 old_value=str(old_value),
@@ -201,7 +181,6 @@ async def delete_book(
     # Create history entry before deleting
     history = BookHistory(
         book=book,
-        changed_by=current_user,
         change_type="deleted",
         description=f"Book '{book.title}' deleted",
     )
@@ -212,61 +191,29 @@ async def delete_book(
     return {"message": "Book deleted successfully"}
 
 
-@router.get("/changes/recent", response_model=ChangeLogListResponse)
-@limiter.limit("10/minute")
+@router.get(
+    "/changes/recent",
+    response_model=Page[BookHistory],
+    response_model_exclude={"created_at", "updated_at", "id", "book"},
+)
+@limiter.limit("100/hour")
 async def get_recent_changes(
     request: Request,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
+    params: Params = Depends(),
 ):
     """Get recent changes to books"""
-    query = BookHistory.find_all().sort(-BookHistory.created_at)
+    query = BookHistory.find_all()
 
-    # Get total count
-    total = await query.count()
+    return await apaginate(query)
 
-    # Apply pagination
-    skip = (page - 1) * page_size
-    changes = await query.skip(skip).limit(page_size).to_list()
 
-    # Fetch linked data
-    for change in changes:
-        await change.fetch_all_links()
+@router.get("/session/data", response_model=Page[CrawlSession])
+@limiter.limit("100/hour")
+async def get_recent_changes(
+    request: Request,
+    params: Params = Depends(),
+):
+    """Get recent changes to books"""
+    query = CrawlSession.find_all()
 
-    # Transform to response format
-    items = []
-    for change in changes:
-        book_data = None
-        if change.book:
-            book_data = BookShortResponse(
-                title=change.book.title,
-                category=change.book.category,
-                price=change.book.price,
-                rating=change.book.rating,
-                reviews_count=change.book.reviews_count,
-                in_stock=change.book.in_stock,
-            )
-
-        changed_by_id = None
-        if change.changed_by:
-            changed_by_id = str(change.changed_by.id)
-
-        item = ChangeLogResponse(
-            id=str(change.id),
-            book=book_data,
-            book_title=change.book.title if change.book else None,
-            changed_by_id=changed_by_id,
-            change_type=change.change_type,
-            field_changed=change.field_changed,
-            old_value=str(change.old_value) if change.old_value else None,
-            new_value=str(change.new_value) if change.new_value else None,
-            description=change.description,
-        )
-        items.append(item)
-
-    return ChangeLogListResponse(
-        total=total,
-        page=page,
-        page_size=page_size,
-        items=items,
-    )
+    return await apaginate(query)

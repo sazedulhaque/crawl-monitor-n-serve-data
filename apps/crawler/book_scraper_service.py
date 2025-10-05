@@ -8,7 +8,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-from apps.api.models import Book, BookHistory, CrawlSession, User
+from apps.api.models import (Book, BookHistory, BookStatus, CrawlSession,
+                             CrawlSessionStatus, User)
 from apps.crawler.crawler import BookScraper
 
 # Configure logger for scraping service
@@ -73,7 +74,7 @@ class BookScrapingService:
 
                 return {
                     "session_id": self.session_id,
-                    "status": "completed",
+                    "status": CrawlSessionStatus.COMPLETED.value,
                     "message": "Scraping completed successfully",
                     "total_books_found": results["total_processed"],
                     "new_books_added": results["new_books"],
@@ -91,14 +92,14 @@ class BookScrapingService:
             # Update session with error status
             if self.crawl_session:
                 await self.scraper.update_crawl_session(
-                    status="failed",
+                    status=CrawlSessionStatus.FAILED,
                     error_message=str(e),
                     completed_at=datetime.now(timezone.utc),
                 )
 
             return {
                 "session_id": self.session_id,
-                "status": "failed",
+                "status": CrawlSessionStatus.FAILED.value,
                 "message": f"Scraping failed: {str(e)}",
                 "total_books_found": 0,
                 "new_books_added": 0,
@@ -435,7 +436,7 @@ class BookScrapingService:
             CrawlSession.session_id == session_id
         )
 
-        if not crawl_session or crawl_session.status != "failed":
+        if not crawl_session or crawl_session.status != CrawlSessionStatus.FAILED:
             logger.warning(
                 f"Cannot resume session {session_id}: "
                 f"Not found or not in failed state"
@@ -448,7 +449,12 @@ class BookScrapingService:
 
         # Update session status to running
         await crawl_session.update(
-            {"$set": {"status": "running", "error_message": None}}
+            {
+                "$set": {
+                    "status": CrawlSessionStatus.RUNNING.value,
+                    "error_message": None,
+                }
+            }
         )
         logger.info(f"Resuming session {session_id} from failed state")
 
@@ -475,7 +481,7 @@ class BookScrapingService:
 
                 # Update final status
                 await scraper.update_crawl_session(
-                    status="completed",
+                    status=CrawlSessionStatus.COMPLETED,
                     completed_at=datetime.now(timezone.utc),
                     processed_pages=crawl_session.total_pages,
                     new_books=crawl_session.new_books + results["new_books"],
@@ -494,7 +500,7 @@ class BookScrapingService:
 
             return {
                 "session_id": session_id,
-                "status": "completed",
+                "status": CrawlSessionStatus.COMPLETED.value,
                 "message": "Resume completed successfully",
             }
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from apps.api.models import User
-from apps.api.schemas import Token, UserRegister, UserResponse
+from apps.api.schemas import Token, UserRegister
 from apps.utils.auth import (authenticate_user, create_access_token,
                              get_current_active_user)
 from core.config import settings
@@ -20,7 +20,9 @@ router = APIRouter()
     response_model_exclude={"password", "created_at", "updated_at", "id"},
     status_code=status.HTTP_201_CREATED,
 )
-async def register(user_data: UserRegister):
+async def register(
+    user_data: UserRegister,
+):
     """Register a new user"""
     # Check if user already exists
     existing_user = await User.find_one(
@@ -32,14 +34,14 @@ async def register(user_data: UserRegister):
             detail="Username or email already registered",
         )
 
-    # Create new user
+    # # Create new user
     user = User(
         email=user_data.email,
         username=user_data.username,
-        password=User.get_password_hash(user_data.password),
+        password=user_data.password,
         full_name=user_data.full_name,
     )
-    await user.insert()
+    await user.save(hash_password=True)
     return user
 
 

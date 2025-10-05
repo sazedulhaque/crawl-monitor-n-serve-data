@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any
 
 from beanie import Document, Indexed, Link
@@ -11,6 +12,23 @@ password_hash = PasswordHash.recommended()
 def utc_now():
     """Helper function to get current UTC time"""
     return datetime.now(timezone.utc)
+
+
+class BookStatus(str, Enum):
+    """Enum for book crawl status"""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    PARTIAL = "partial"
+
+
+class CrawlSessionStatus(str, Enum):
+    """Enum for crawl session status"""
+
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    PAUSED = "paused"
 
 
 class BaseModel(Document):
@@ -28,15 +46,6 @@ class BaseModel(Document):
         return await super().save(*args, **kwargs)
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
-class TokenData(BaseModel):
-    username: str | None = None
-
-
 class User(BaseModel):
     """User model for authentication"""
 
@@ -49,6 +58,7 @@ class User(BaseModel):
 
     class Settings:
         name = "users"
+        validate_on_save = True
         indexes = [
             "email",
             "username",
@@ -63,9 +73,28 @@ class User(BaseModel):
         """Hash password"""
         return password_hash.hash(password)
 
+    def set_password(self, password: str) -> None:
+        """Set and hash the password"""
+        self.password = self.get_password_hash(password)
 
-class UserInDB(User):
-    hashed_password: str
+    async def save(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Saves the user to the database.
+
+        Args:
+            *args (Any): The arguments to pass to the save method.
+            **kwargs (Any): The keyword arguments to pass to the save method.
+
+        Returns:
+            None
+        """
+        if kwargs.pop("hash_password", True) and self.password is not None:
+            self.set_password(self.password)
+        return await super().save(*args, **kwargs)
 
 
 class Book(BaseModel):
@@ -83,7 +112,7 @@ class Book(BaseModel):
     cover_image: HttpUrl | None = None
     user: Link[User] | None = None
     crawl_timestamp: datetime = Field(default_factory=datetime.utcnow)
-    status: str = "success"  # success, failed, partial
+    status: BookStatus = Field(default=BookStatus.SUCCESS)  # Use enum
     html_snapshot: str = ""
     remote_book_id: str | None = Field(default=None, index=True)
     content_hash: str | None = Field(default=None, index=True)
@@ -109,7 +138,9 @@ class CrawlSession(BaseModel):
     """Track crawl sessions for monitoring and resumability"""
 
     session_id: str = Field(..., index=True)
-    status: str = Field(..., index=True)  # running, completed, failed, paused
+    status: CrawlSessionStatus = Field(
+        default=CrawlSessionStatus.RUNNING, index=True
+    )  # Use enum
     started_by: Link[User] | None = None
     total_pages: int = 0
     processed_pages: int = 0
@@ -129,7 +160,6 @@ class BookHistory(BaseModel):
     """Track changes to books"""
 
     book: Link[Book]
-    changed_by: Link[User] | None = None
     change_type: str = Field(..., index=True)
     field_changed: str | None = None  # Which field changed
     old_value: Any | None = None
