@@ -3,7 +3,7 @@ Pytest configuration and fixtures for testing
 """
 
 import asyncio
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
 from beanie import init_beanie

@@ -6,8 +6,8 @@ from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
 class UserRegister(BaseModel):
     """Schema for user registration"""
 
-    email: EmailStr
-    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr = Field(..., unique=True)
+    username: str = Field(..., index=True, min_length=3, max_length=50, unique=True)
     password: str = Field(..., min_length=6)
     full_name: str | None = None
 

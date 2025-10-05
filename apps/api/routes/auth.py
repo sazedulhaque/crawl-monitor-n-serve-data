@@ -16,7 +16,8 @@ router = APIRouter()
 
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=User,
+    response_model_exclude={"password", "created_at", "updated_at", "id"},
     status_code=status.HTTP_201_CREATED,
 )
 async def register(user_data: UserRegister):
@@ -39,15 +40,7 @@ async def register(user_data: UserRegister):
         full_name=user_data.full_name,
     )
     await user.insert()
-
-    return UserResponse(
-        id=str(user.id),
-        email=user.email,
-        username=user.username,
-        full_name=user.full_name,
-        is_active=user.is_active,
-        is_admin=user.is_admin,
-    )
+    return user
 
 
 @router.post("/login", response_model=Token)
@@ -67,23 +60,18 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return Token(access_token=access_token)
 
 
-@router.get("/me")
+@router.get(
+    "/me",
+    response_model=User,
+    response_model_exclude={"password", "created_at", "updated_at", "id"},
+)
 async def read_users_me_and_scrape(
     request: Request,
     current_user: User = Depends(get_current_active_user),
 ):
     """Get current user information"""
     # User information
-    user_response = UserResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        username=current_user.username,
-        full_name=current_user.full_name,
-        is_active=current_user.is_active,
-        is_admin=current_user.is_admin,
-    )
-
-    return {"user": user_response.model_dump()}
+    return await User.get(current_user.id)
 
 
 @router.post("/token")

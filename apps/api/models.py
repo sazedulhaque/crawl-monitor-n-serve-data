@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from beanie import Document, Link
+from beanie import Document, Indexed, Link
 from pwdlib import PasswordHash
 from pydantic import EmailStr, Field, HttpUrl
 
@@ -40,8 +40,8 @@ class TokenData(BaseModel):
 class User(BaseModel):
     """User model for authentication"""
 
-    email: EmailStr = Field(..., index=True)
-    username: str = Field(..., index=True, min_length=3, max_length=50)
+    email: EmailStr = Indexed(str, unique=True)
+    username: str = Indexed(str, unique=True, min_length=3, max_length=50)
     password: str
     full_name: str | None = None
     is_active: bool = True

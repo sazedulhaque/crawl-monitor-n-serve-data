@@ -187,7 +187,7 @@ The `.vscode/settings.json` file is configured to:
 
 ```bash
 pytest apps/tests
-pytest 
+pytest
 ```
 
 ## Trouble with linter, execute pre-commit manually on local machine

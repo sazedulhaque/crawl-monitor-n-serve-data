@@ -28,7 +28,11 @@ class TestUserRegistration:
         assert data["full_name"] == user_data["full_name"]
         assert data["is_active"] is True
         assert data["is_admin"] is False
-        assert "id" in data
+        # These fields should be excluded from response
+        assert "password" not in data
+        assert "created_at" not in data
+        assert "updated_at" not in data
+        assert "id" not in data
 
     async def test_register_duplicate_username(self, test_client, test_user):
         """Test registration with duplicate username"""
@@ -144,8 +148,14 @@ class TestProtectedEndpoints:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["user"]["username"] == "testuser"
-        assert data["user"]["email"] == "testuser@example.com"
+        assert data["username"] == "testuser"
+        assert data["email"] == "testuser@example.com"
+        assert data["is_active"] is True
+        # These fields should be excluded from response
+        assert "password" not in data
+        assert "created_at" not in data
+        assert "updated_at" not in data
+        assert "id" not in data
 
     async def test_get_current_user_no_token(self, test_client):
         """Test getting current user without token"""
@@ -183,5 +193,11 @@ class TestAdminEndpoints:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["user"]["username"] == "adminuser"
-        assert data["user"]["is_admin"] is True
+        assert data["username"] == "adminuser"
+        assert data["is_admin"] is True
+        assert data["is_active"] is True
+        # These fields should be excluded from response
+        assert "password" not in data
+        assert "created_at" not in data
+        assert "updated_at" not in data
+        assert "id" not in data
